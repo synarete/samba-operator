@@ -353,7 +353,12 @@ func (m *OpenShiftManager) getOrCreateServiceAccount(
 	}
 	err = m.client.Create(ctx, saWant, &rtclient.CreateOptions{})
 	if err != nil {
-		m.logger.Error(err, "Failed to create ServiceAccount", "key", saKey)
+		if errors.IsAlreadyExists(err) {
+			m.logger.Info("ServiceAccount already exists", "key", saKey)
+		} else {
+			m.logger.Error(err, "Failed to create ServiceAccount",
+				"key", saKey)
+		}
 		return nil, false, err
 	}
 	return saWant, true, nil
@@ -409,7 +414,11 @@ func (m *OpenShiftManager) getOrCreateSccRole(
 	}
 	err = m.client.Create(ctx, roleWant, &rtclient.CreateOptions{})
 	if err != nil {
-		m.logger.Error(err, "Failed to create SCC Role", "key", roleKey)
+		if errors.IsAlreadyExists(err) {
+			m.logger.Info("SCC Role already exists", "key", roleKey)
+		} else {
+			m.logger.Error(err, "Failed to create SCC Role", "key", roleKey)
+		}
 		return nil, false, err
 	}
 	return roleWant, true, nil
@@ -459,8 +468,12 @@ func (m *OpenShiftManager) getOrCreateSccRoleBinding(
 	}
 	err = m.client.Create(ctx, roleBindWant, &rtclient.CreateOptions{})
 	if err != nil {
-		m.logger.Error(err, "Failed to create RoleBinding",
-			"key", roleBindKey)
+		if errors.IsAlreadyExists(err) {
+			m.logger.Info("SCC RoleBinding already exists", "key", roleBindKey)
+		} else {
+			m.logger.Error(err, "Failed to create RoleBinding",
+				"key", roleBindKey)
+		}
 		return nil, false, err
 	}
 	return roleBindWant, true, nil
@@ -528,7 +541,12 @@ func (m *OpenShiftManager) getOrCreateMetricsRole(
 	}
 	err = m.client.Create(ctx, roleWant, &rtclient.CreateOptions{})
 	if err != nil {
-		m.logger.Error(err, "Failed to create Metrics Role", "key", roleKey)
+		if errors.IsAlreadyExists(err) {
+			m.logger.Info("Metrics Role already exists", "key", roleKey)
+		} else {
+			m.logger.Error(err, "Failed to create Metrics Role",
+				"key", roleKey)
+		}
 		return nil, false, err
 	}
 	return roleWant, true, nil
@@ -578,8 +596,13 @@ func (m *OpenShiftManager) getOrCreateMetricsRoleBinding(
 	}
 	err = m.client.Create(ctx, roleBindWant, &rtclient.CreateOptions{})
 	if err != nil {
-		m.logger.Error(err, "Failed to create Metrics RoleBinding",
-			"key", roleBindKey)
+		if errors.IsAlreadyExists(err) {
+			m.logger.Info("Metrics RoleBinding already exists",
+				"key", roleBindKey)
+		} else {
+			m.logger.Error(err, "Failed to create Metrics RoleBinding",
+				"key", roleBindKey)
+		}
 		return nil, false, err
 	}
 	return roleBindWant, true, nil
