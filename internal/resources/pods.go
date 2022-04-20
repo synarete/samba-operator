@@ -112,6 +112,7 @@ func buildADPodSpec(
 	podSpec := defaultPodSpec(planner)
 	podSpec.Volumes = getVolumes(volumes)
 	podSpec.InitContainers = []corev1.Container{
+		buildInitChmodCtr(planner, shareVol),
 		buildInitCtr(planner, podEnv, smbAllVols),
 		buildMustJoinCtr(planner, joinEnv, joinVols),
 	}
@@ -125,9 +126,12 @@ func buildUserPodSpec(
 	pvcName string) corev1.PodSpec {
 	// ---
 	vols := []volMount{}
+	initContainers := []corev1.Container{}
 
 	shareVol := shareVolumeAndMount(planner, pvcName)
 	vols = append(vols, shareVol)
+	initContainers = append(initContainers,
+		buildInitChmodCtr(planner, shareVol))
 
 	stateVol := sambaStateVolumeAndMount(planner)
 	vols = append(vols, stateVol)
@@ -142,10 +146,12 @@ func buildUserPodSpec(
 		v := userConfigVolumeAndMount(planner)
 		vols = append(vols, v)
 	}
+
 	podEnv := defaultPodEnv(planner)
 	podSpec := defaultPodSpec(planner)
 	podSpec.Volumes = getVolumes(vols)
 	podSpec.Containers = buildSmbdCtrs(planner, podEnv, vols)
+	podSpec.InitContainers = initContainers
 	return podSpec
 }
 
@@ -197,6 +203,7 @@ func buildClusteredUserPodSpec(
 
 	initContainers = append(
 		initContainers,
+		buildInitChmodCtr(planner, shareVol),
 		buildInitCtr(planner, podEnv, append(
 			podCfgVols,
 			stateVol,
@@ -315,6 +322,7 @@ func buildClusteredADPodSpec(
 
 	initContainers = append(
 		initContainers,
+		buildInitChmodCtr(planner, shareVol),
 		buildInitCtr(planner, podEnv, append(
 			podCfgVols,
 			stateVol,
@@ -559,6 +567,21 @@ func buildSvcWatchCtr(
 		Name:         "svc-watch",
 		Env:          env,
 		VolumeMounts: getMounts(vols),
+	}
+}
+
+func buildInitChmodCtr(
+	planner *pln.Planner, shareVol volMount) corev1.Container {
+	// ---
+	return corev1.Container{
+		Image:   planner.GlobalConfig.GenericContainerImage,
+		Name:    "chmod",
+		Command: []string{"/bin/sh"},
+		Args: []string{
+			"-c",
+			"find /mnt -maxdepth 1 -type d -exec chmod 0777 {} \\; && sleep 2",
+		},
+		VolumeMounts: getMounts([]volMount{shareVol}),
 	}
 }
 

@@ -13,6 +13,7 @@ var DefaultOperatorConfig = OperatorConfig{
 	SmbdContainerImage:        "quay.io/samba.org/samba-server:latest",
 	SmbdMetricsContainerImage: "quay.io/samba.org/samba-metrics:latest",
 	SvcWatchContainerImage:    "quay.io/samba.org/svcwatch:latest",
+	GenericContainerImage:     "registry.access.redhat.com/ubi8/ubi:latest",
 	SmbdContainerName:         "samba",
 	WinbindContainerName:      "wb",
 	WorkingNamespace:          "",
@@ -36,6 +37,9 @@ type OperatorConfig struct {
 	// SvcWatchContainerImage can be used to select alternate container image
 	// for the service watch utility.
 	SvcWatchContainerImage string `mapstructure:"svc-watch-container-image"`
+	// GenericContainerImage is used by init container to setup share volume
+	// prior to actual smbd execution ("chmod").
+	GenericContainerImage string `mapstructure:"generic-container-image"`
 	// SmbdContainerName can be used to set the name of the primary container,
 	// the one running smbd, in the pod.
 	SmbdContainerName string `mapstructure:"smbd-container-name"`
@@ -108,10 +112,11 @@ func NewSource() *Source {
 	v := viper.New()
 	v.SetDefault("smbd-container-image", d.SmbdContainerImage)
 	v.SetDefault("smbd-metrics-container-image", d.SmbdMetricsContainerImage)
+	v.SetDefault("svc-watch-container-image", d.SvcWatchContainerImage)
+	v.SetDefault("generic-container-image", d.GenericContainerImage)
 	v.SetDefault("smbd-container-name", d.SmbdContainerName)
 	v.SetDefault("winbind-container-name", d.WinbindContainerName)
 	v.SetDefault("working-namespace", d.WorkingNamespace)
-	v.SetDefault("svc-watch-container-image", d.SvcWatchContainerImage)
 	v.SetDefault("samba-debug-level", d.SambaDebugLevel)
 	v.SetDefault("state-pvc-size", d.StatePVCSize)
 	v.SetDefault("cluster-support", d.ClusterSupport)
