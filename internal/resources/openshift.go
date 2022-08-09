@@ -11,6 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	rtclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -44,6 +45,7 @@ const (
 // to OpenShift's 'anyuid' SCC.
 type OpenShiftManager struct {
 	client      rtclient.Client
+	scheme      *runtime.Scheme
 	logger      logr.Logger
 	cfg         *conf.OperatorConfig
 	ClusterType ClusterType
@@ -52,10 +54,12 @@ type OpenShiftManager struct {
 // NewOpenShiftManager creates a ServiceAccountManager instance
 func NewOpenShiftManager(
 	clnt rtclient.Client,
+	scheme *runtime.Scheme,
 	log logr.Logger,
 	cfg *conf.OperatorConfig) *OpenShiftManager {
 	return &OpenShiftManager{
 		client: clnt,
+		scheme: scheme,
 		logger: log,
 		cfg:    cfg,
 	}
@@ -141,7 +145,7 @@ func (m *OpenShiftManager) Update(
 		return Requeue
 	}
 
-	sa, created, err := m.getOrCreateServiceAccount(ctx)
+	sa, created, err := m.getOrCreateServiceAccount(ctx, cc)
 	if err != nil {
 		return Result{err: err}
 	}
@@ -152,7 +156,7 @@ func (m *OpenShiftManager) Update(
 		return Requeue
 	}
 
-	sccRole, created, err := m.getOrCreateSCCRole(ctx)
+	sccRole, created, err := m.getOrCreateSCCRole(ctx, cc)
 	if err != nil {
 		return Result{err: err}
 	}
@@ -174,7 +178,7 @@ func (m *OpenShiftManager) Update(
 		return Requeue
 	}
 
-	metricsRole, created, err := m.getOrCreateMetricsRole(ctx)
+	metricsRole, created, err := m.getOrCreateMetricsRole(ctx, cc)
 	if err != nil {
 		return Result{err: err}
 	}
@@ -347,7 +351,9 @@ func (m *OpenShiftManager) getNamespace(
 }
 
 func (m *OpenShiftManager) getOrCreateServiceAccount(
-	ctx context.Context) (*corev1.ServiceAccount, bool, error) {
+	ctx context.Context,
+	cc *sambaoperatorv1alpha1.SmbCommonConfig) (
+	*corev1.ServiceAccount, bool, error) {
 	// ---
 	saCurr, saKey, err := m.getServiceAccount(ctx)
 	if err == nil {
@@ -371,6 +377,10 @@ func (m *OpenShiftManager) getOrCreateServiceAccount(
 			m.logger.Error(err, "Failed to create ServiceAccount",
 				"key", saKey)
 		}
+		return nil, false, err
+	}
+	err = m.setControllerReference(cc, saWant)
+	if err != nil {
 		return nil, false, err
 	}
 	return saWant, true, nil
@@ -399,7 +409,8 @@ func (m *OpenShiftManager) serviceAccountNsname() types.NamespacedName {
 }
 
 func (m *OpenShiftManager) getOrCreateSCCRole(
-	ctx context.Context) (*rbacv1.Role, bool, error) {
+	ctx context.Context,
+	cc *sambaoperatorv1alpha1.SmbCommonConfig) (*rbacv1.Role, bool, error) {
 	// ---
 	roleCurr, roleKey, err := m.getSCCRole(ctx)
 	if err == nil {
@@ -431,6 +442,10 @@ func (m *OpenShiftManager) getOrCreateSCCRole(
 		} else {
 			m.logger.Error(err, "Failed to create SCC Role", "key", roleKey)
 		}
+		return nil, false, err
+	}
+	err = m.setControllerReference(cc, roleWant)
+	if err != nil {
 		return nil, false, err
 	}
 	return roleWant, true, nil
@@ -488,6 +503,10 @@ func (m *OpenShiftManager) getOrCreateSCCRoleBinding(
 		}
 		return nil, false, err
 	}
+	err = m.setControllerReference(role, roleBindWant)
+	if err != nil {
+		return nil, false, err
+	}
 	return roleBindWant, true, nil
 }
 
@@ -528,7 +547,8 @@ func (m *OpenShiftManager) sccRoleBindingNsname() types.NamespacedName {
 }
 
 func (m *OpenShiftManager) getOrCreateMetricsRole(
-	ctx context.Context) (*rbacv1.Role, bool, error) {
+	ctx context.Context,
+	cc *sambaoperatorv1alpha1.SmbCommonConfig) (*rbacv1.Role, bool, error) {
 	// ---
 	roleCurr, roleKey, err := m.getMetricsRole(ctx)
 	if err == nil {
@@ -559,6 +579,10 @@ func (m *OpenShiftManager) getOrCreateMetricsRole(
 			m.logger.Error(err, "Failed to create Metrics Role",
 				"key", roleKey)
 		}
+		return nil, false, err
+	}
+	err = m.setControllerReference(cc, roleWant)
+	if err != nil {
 		return nil, false, err
 	}
 	return roleWant, true, nil
@@ -617,6 +641,10 @@ func (m *OpenShiftManager) getOrCreateMetricsRoleBinding(
 		}
 		return nil, false, err
 	}
+	err = m.setControllerReference(role, roleBindWant)
+	if err != nil {
+		return nil, false, err
+	}
 	return roleBindWant, true, nil
 }
 
@@ -645,6 +673,19 @@ func (m *OpenShiftManager) metricsRoleBindingNsname() types.NamespacedName {
 		Namespace: m.cfg.PodNamespace,
 		Name:      metricsRoleBindingName,
 	}
+}
+
+func (m *OpenShiftManager) setControllerReference(
+	owner, controlled metav1.Object) error {
+	err := controllerutil.SetControllerReference(owner, controlled, m.scheme)
+	if err != nil {
+		m.logger.Error(err, "SetControllerReference failed",
+			"owner", owner.GetName(), "controlled", controlled.GetName())
+	} else {
+		m.logger.Info("SetControllerReference OK",
+			"owner", owner.GetName(), "controlled", controlled.GetName())
+	}
+	return err
 }
 
 // IsOpenShiftCluster checks if operator is running on OpenShift cluster based

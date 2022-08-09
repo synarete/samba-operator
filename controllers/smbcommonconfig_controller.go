@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -33,7 +32,6 @@ import (
 type SmbCommonConfigReconciler struct {
 	client.Client
 	Log         logr.Logger
-	Scheme      *runtime.Scheme
 	ClusterType resources.ClusterType
 }
 
@@ -66,7 +64,7 @@ func (r *SmbCommonConfigReconciler) Reconcile(
 		return ctrl.Result{}, nil
 	}
 
-	mgr := resources.NewOpenShiftManager(r.Client, log, conf.Get())
+	mgr := resources.NewOpenShiftManager(r.Client, r.Scheme(), log, conf.Get())
 	res := mgr.Process(ctx, req.NamespacedName)
 	err := res.Err()
 	if res.Requeue() {
