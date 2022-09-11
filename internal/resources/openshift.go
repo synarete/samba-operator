@@ -11,6 +11,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	rtclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -47,17 +48,20 @@ type OpenShiftManager struct {
 	logger      logr.Logger
 	cfg         *conf.OperatorConfig
 	ClusterType ClusterType
+	scheme      *runtime.Scheme
 }
 
 // NewOpenShiftManager creates a ServiceAccountManager instance
 func NewOpenShiftManager(
 	clnt rtclient.Client,
 	log logr.Logger,
-	cfg *conf.OperatorConfig) *OpenShiftManager {
+	cfg *conf.OperatorConfig,
+	scheme *runtime.Scheme) *OpenShiftManager {
 	return &OpenShiftManager{
 		client: clnt,
 		logger: log,
 		cfg:    cfg,
+		scheme: scheme,
 	}
 }
 
@@ -90,10 +94,6 @@ func (m *OpenShiftManager) Process(
 	// now that we have the resource. determine if its live or pending deletion
 	if cc.GetDeletionTimestamp() != nil {
 		// its being deleted
-		if controllerutil.ContainsFinalizer(cc, openshiftFinalizer) {
-			// and our finalizer is present
-			return m.Finalize(ctx, cc)
-		}
 		return Done
 	}
 	// resource is alive
@@ -121,15 +121,6 @@ func (m *OpenShiftManager) Update(
 		"SmbCommonConfig.Name", cc.Name,
 		"SmbCommonConfig.UID", cc.UID)
 
-	changed, err := m.addFinalizer(ctx, cc)
-	if err != nil {
-		return Result{err: err}
-	}
-	if changed {
-		m.logger.Info("Added OpenShift finalizer")
-		return Requeue
-	}
-
 	ns, updated, err := m.getOrUpdateNamespace(ctx, cc.Namespace)
 	if err != nil {
 		return Result{err: err}
@@ -146,6 +137,9 @@ func (m *OpenShiftManager) Update(
 		return Result{err: err}
 	}
 	if created {
+		if err := m.setOwnerReference(cc, sa); err != nil {
+			return Result{err: err}
+		}
 		m.logger.Info("Created ServiceAccount",
 			"ServiceAccount.Namespace", sa.Namespace,
 			"ServiceAccount.Name", sa.Name)
@@ -157,6 +151,9 @@ func (m *OpenShiftManager) Update(
 		return Result{err: err}
 	}
 	if created {
+		if err := m.setOwnerReference(cc, sccRole); err != nil {
+			return Result{err: err}
+		}
 		m.logger.Info("Created SCC Role",
 			"SCCRole.Namespace", sccRole.Namespace,
 			"SCCRole.Name", sccRole.Name)
@@ -168,6 +165,9 @@ func (m *OpenShiftManager) Update(
 		return Result{err: err}
 	}
 	if created {
+		if err := m.setOwnerReference(cc, sccRoleBind); err != nil {
+			return Result{err: err}
+		}
 		m.logger.Info("Created SCC RoleBinding",
 			"SCCRoleBinding.Namespace", sccRoleBind.Namespace,
 			"SCCRoleBinding.Name", sccRoleBind.Name)
@@ -179,6 +179,9 @@ func (m *OpenShiftManager) Update(
 		return Result{err: err}
 	}
 	if created {
+		if err := m.setOwnerReference(cc, metricsRole); err != nil {
+			return Result{err: err}
+		}
 		m.logger.Info("Created Metrics Role",
 			"MetricsRole.Namespace", metricsRole.Namespace,
 			"MetricsRole.Name", metricsRole.Name)
@@ -191,6 +194,9 @@ func (m *OpenShiftManager) Update(
 		return Result{err: err}
 	}
 	if created {
+		if err := m.setOwnerReference(cc, metricsRoleBind); err != nil {
+			return Result{err: err}
+		}
 		m.logger.Info("Created Metrics RoleBinding",
 			"MetricsRoleBinding.Namespace", metricsRoleBind.Namespace,
 			"MetricsRoleBinding.Name", metricsRoleBind.Name)
@@ -206,6 +212,20 @@ func (m *OpenShiftManager) Update(
 		"MetricsRoleBinding.Name", metricsRoleBind.Name)
 
 	return Done
+}
+
+func (m *OpenShiftManager) setOwnerReference(
+	cc *sambaoperatorv1alpha1.SmbCommonConfig, obj metav1.Object) error {
+	err := controllerutil.SetOwnerReference(cc, obj, m.scheme)
+	if err != nil {
+		m.logger.Error(err, "SetOwnerReference failed",
+			"Name", obj.GetName())
+		return err
+	}
+	m.logger.Info("SetOwnerReference",
+		"owner", cc.GetName(),
+		"object", obj.GetName())
+	return nil
 }
 
 // Finalize should be called when there's a finalizer on the resource

@@ -66,7 +66,7 @@ func (r *SmbCommonConfigReconciler) Reconcile(
 		return ctrl.Result{}, nil
 	}
 
-	mgr := resources.NewOpenShiftManager(r.Client, log, conf.Get())
+	mgr := resources.NewOpenShiftManager(r.Client, log, conf.Get(), r.Scheme)
 	res := mgr.Process(ctx, req.NamespacedName)
 	err := res.Err()
 	if res.Requeue() {

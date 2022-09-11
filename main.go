@@ -130,6 +130,7 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.SmbCommonConfigReconciler{
+		Scheme: scheme,
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("SmbCommonConfig"),
 	}).SetupWithManager(mgr); err != nil {
