@@ -23,10 +23,11 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
       - name: Display setup info
-        run: echo " ${{ matrix.os }} "
-        run: echo " ${{ matrix.arch }} "
-        run: echo " ${{ matrix.go-version }} "
-        run: go version
+        run: |
+          echo " ${{ matrix.os }} "
+          echo " ${{ matrix.arch }} "
+          echo " ${{ matrix.go-version }} "
+          go version
       - uses: actions/checkout@v2
       - name: Build
         run: make
