@@ -9,7 +9,7 @@ jobs:
     name: Build on ${{ matrix.arch }}
     strategy:
       matrix:
-        go-version: [ '1.17', '1.18' ]
+        go-version: [ "1.17", "1.18" ]
         include:
           - arch: x86_64
             os: [ubuntu-latest]
@@ -22,12 +22,6 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go-version }}
-      - name: Display setup info
-        run: |
-          echo " ${{ matrix.os }} "
-          echo " ${{ matrix.arch }} "
-          echo " ${{ matrix.go-version }} "
-          go version
       - uses: actions/checkout@v2
       - name: Build
         run: make
