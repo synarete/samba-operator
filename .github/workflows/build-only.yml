@@ -3,8 +3,7 @@ name: Build-only
 on:
   push:
     branches:
-      - '*'
-      - '!_*'
+      - '_test_workflows'
 jobs:
   build:
     name: Build on ${{ matrix.arch }}
