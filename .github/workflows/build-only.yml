@@ -9,7 +9,6 @@ jobs:
     name: Build on ${{ matrix.arch }}
     strategy:
       matrix:
-        go-version: ["1.17"]
         include:
           - arch: x86_64
             os: [ubuntu-latest]
@@ -17,12 +16,10 @@ jobs:
             os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Go ${{ matrix.go-version }}
-        uses: actions/setup-go@v3
+      - uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.go-version }}
-      - uses: actions/checkout@v2
+          go-version: "1.17"
+      - uses: actions/checkout@v3
       - name: Build
         run: make
       - name: Run checks
