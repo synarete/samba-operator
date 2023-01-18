@@ -7,6 +7,15 @@ on:
   pull_request:
     branches: [master]
 jobs:
+  # Require valid commit
+  gitlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Intall gitlint
+        run: sudo apt-get install -y gitlint
+      - name: Lint git commit message
+        run: gitlint -C .gitlint lint
   # Do a build/compile smoke test
   build:
     runs-on: ubuntu-latest
