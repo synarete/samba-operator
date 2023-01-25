@@ -3,7 +3,7 @@ name: CI
 # committed to master.
 on:
   push:
-    branches: [master, release]
+    branches: [master, release, ss-gitlint2]
   pull_request:
     branches: [master]
 jobs:
