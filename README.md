@@ -159,3 +159,6 @@ The container from this codebase is published on
 
 * [Presentations](./docs/presentations/README.md) about the Samba Operator
 * [Developer's Guide](./docs/developers-notes.md) - an incomplete set of tips for working on the operator
+
+
+DELETEME
